@@ -33,7 +33,7 @@ const IPCHandlers = require("./src/helpers/ipcHandlers");
 
 // 设置生产环境PATH
 function setupProductionPath() {
-  logger.info('设置生产环境PATH', {
+  logger.info('Setting production PATH', {
     platform: process.platform,
     nodeEnv: process.env.NODE_ENV,
     currentPath: process.env.PATH
@@ -67,12 +67,12 @@ function setupProductionPath() {
     if (pathsToAdd.length > 0) {
       const newPath = `${currentPath}:${pathsToAdd.join(':')}`;
       process.env.PATH = newPath;
-      logger.info('PATH已更新', {
-        添加的路径: pathsToAdd,
-        新PATH: newPath
+      logger.info('PATH updated', {
+        addedPaths: pathsToAdd,
+        newPath: newPath
       });
     } else {
-      logger.info('PATH无需更新，所有路径已存在');
+      logger.info('PATH update not needed, all paths already exist');
     }
   } else if (process.platform === 'win32' && process.env.NODE_ENV !== 'development') {
     // Windows平台的Python路径设置
@@ -95,9 +95,9 @@ function setupProductionPath() {
     if (pathsToAdd.length > 0) {
       const newPath = `${currentPath};${pathsToAdd.join(';')}`;
       process.env.PATH = newPath;
-      logger.info('Windows PATH已更新', {
-        添加的路径: pathsToAdd,
-        新PATH: newPath
+      logger.info('Windows PATH updated', {
+        addedPaths: pathsToAdd,
+        newPath: newPath
       });
     }
   }
@@ -108,7 +108,7 @@ setupProductionPath();
 
 // 设置用户数据目录环境变量，供Python脚本使用
 process.env.ELECTRON_USER_DATA = app.getPath('userData');
-logger.info('设置用户数据目录环境变量', {
+logger.info('Set user data directory environment variable', {
   ELECTRON_USER_DATA: process.env.ELECTRON_USER_DATA
 });
 
@@ -138,7 +138,7 @@ const ipcHandlers = new IPCHandlers({
 
 // 主应用启动函数
 async function startApp() {
-  logger.info('应用启动开始', {
+  logger.info('App startup started', {
     nodeEnv: process.env.NODE_ENV,
     platform: process.platform,
     arch: process.arch,
@@ -149,52 +149,52 @@ async function startApp() {
   // 注释掉 accessibility 支持 - 可能干扰文本插入
   // try {
   //   app.setAccessibilitySupportEnabled(true);
-  //   logger.info('✅ 已启用 Electron accessibility 支持');
+  //   logger.info('✅ Electron accessibility support enabled');
   // } catch (error) {
-  //   logger.warn('⚠️ 启用 accessibility 支持失败:', error.message);
+  //   logger.warn('⚠️ Failed to enable accessibility support:', error.message);
   // }
 
   // 记录系统信息
-  logger.info('系统信息', logger.getSystemInfo());
+  logger.info('System info', logger.getSystemInfo());
 
   // 开发模式下添加小延迟让Vite正确启动
   if (process.env.NODE_ENV === "development") {
-    logger.info('开发模式，等待Vite启动...');
+    logger.info('Development mode, waiting for Vite to start...');
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
   // 确保macOS上dock可见
   if (process.platform === 'darwin' && app.dock) {
     app.dock.show();
-    logger.info('macOS Dock已显示');
+    logger.info('macOS Dock shown');
   }
 
   // 在启动时初始化FunASR管理器（不等待以避免阻塞）
-  logger.info('开始初始化FunASR管理器...');
+  logger.info('Initializing FunASR manager...');
   funasrManager.initializeAtStartup().catch((err) => {
-    logger.warn("FunASR在启动时不可用，这不是关键问题", err);
+    logger.warn("FunASR is unavailable at startup, this is not critical", err);
   });
 
   // 创建主窗口
   try {
-    logger.info('创建主窗口...');
+    logger.info('Creating main window...');
     await windowManager.createMainWindow();
-    logger.info('主窗口创建成功');
+    logger.info('Main window created successfully');
   } catch (error) {
-    logger.error("创建主窗口时出错:", error);
+    logger.error("Error creating main window:", error);
   }
 
   // 创建控制面板窗口
   try {
-    logger.info('创建控制面板窗口...');
+    logger.info('Creating control panel window...');
     await windowManager.createControlPanelWindow();
-    logger.info('控制面板窗口创建成功');
+    logger.info('Control panel window created successfully');
   } catch (error) {
-    logger.error("创建控制面板窗口时出错:", error);
+    logger.error("Error creating control panel window:", error);
   }
 
   // 设置托盘
-  logger.info('设置系统托盘...');
+  logger.info('Setting up system tray...');
   trayManager.setWindows(
     windowManager.mainWindow,
     windowManager.controlPanelWindow
@@ -203,9 +203,9 @@ async function startApp() {
     windowManager.createControlPanelWindow()
   );
   await trayManager.createTray();
-  logger.info('系统托盘设置完成');
+  logger.info('System tray setup completed');
 
-  logger.info('应用启动完成');
+  logger.info('App startup completed');
 }
 
 // 应用事件处理器

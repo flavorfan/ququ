@@ -60,7 +60,7 @@ class TrayManager {
 
     } catch (error) {
       if (this.logger && this.logger.error) {
-        this.logger.error("创建托盘失败:", error);
+        this.logger.error("Failed to create tray:", error);
       }
     }
   }

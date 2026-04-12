@@ -64,7 +64,7 @@ class PythonInstaller {
       try {
         await runCommand("brew", ["--version"], { timeout: TIMEOUTS.QUICK_CHECK });
         if (this.logger && this.logger.info) {
-          this.logger.info("通过 Homebrew 安装 Python...");
+          this.logger.info("Installing Python via Homebrew...");
         }
         
         if (progressCallback) {
@@ -81,7 +81,7 @@ class PythonInstaller {
         
       } catch (brewError) {
         if (this.logger && this.logger.info) {
-          this.logger.info("Homebrew 不可用，使用官方安装包...");
+          this.logger.info("Homebrew not available, using official installer...");
         }
         
         if (progressCallback) {

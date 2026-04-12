@@ -163,7 +163,7 @@ class IPCHandlers {
       try {
         return await this.clipboardManager.copyText(text);
       } catch (error) {
-        this.logger.error("复制文本失败:", error);
+        this.logger.error("Failed to copy text:", error);
         return { success: false, error: error.message };
       }
     });
@@ -176,7 +176,7 @@ class IPCHandlers {
       try {
         return await this.clipboardManager.insertTextDirectly(text);
       } catch (error) {
-        this.logger.error("直接插入文本失败:", error);
+        this.logger.error("Failed to insert text directly:", error);
         return { success: false, error: error.message };
       }
     });
@@ -189,7 +189,7 @@ class IPCHandlers {
         }
         return { success: true, message: "非 macOS 平台，无需设置" };
       } catch (error) {
-        this.logger.error("启用 macOS accessibility 失败:", error);
+        this.logger.error("Failed to enable macOS accessibility:", error);
         return { success: false, error: error.message };
       }
     });
@@ -199,7 +199,7 @@ class IPCHandlers {
         const text = await this.clipboardManager.readClipboard();
         return { success: true, text };
       } catch (error) {
-        this.logger.error("读取剪贴板失败:", error);
+        this.logger.error("Failed to read clipboard:", error);
         return { success: false, error: error.message };
       }
     });
@@ -208,7 +208,7 @@ class IPCHandlers {
       try {
         return await this.clipboardManager.writeClipboard(text);
       } catch (error) {
-        this.logger.error("写入剪贴板失败:", error);
+        this.logger.error("Failed to write clipboard:", error);
         return { success: false, error: error.message };
       }
     });
@@ -316,13 +316,13 @@ class IPCHandlers {
           
           // 检查是否已经为这个发送者注册过热键
           if (this.hotkeyRegisteredSenders.has(senderId)) {
-            this.logger.info(`发送者 ${senderId} 已注册过热键，跳过重复注册`);
+            this.logger.info(`Sender ${senderId} has already registered the hotkey, skipping duplicate registration`);
             return { success: true };
           }
           
           const success = this.hotkeyManager.registerHotkey(hotkey, () => {
             // 只发送热键触发事件到主窗口，避免重复触发
-            this.logger.info(`热键 ${hotkey} 被触发，发送事件到主窗口`);
+            this.logger.info(`Hotkey ${hotkey} triggered, sending event to main window`);
             if (this.windowManager && this.windowManager.mainWindow && !this.windowManager.mainWindow.isDestroyed()) {
               this.windowManager.mainWindow.webContents.send("hotkey-triggered", { hotkey });
             }
@@ -335,19 +335,19 @@ class IPCHandlers {
             // 监听窗口关闭事件，清理注册记录
             event.sender.on('destroyed', () => {
               this.hotkeyRegisteredSenders.delete(senderId);
-              this.logger.info(`清理发送者 ${senderId} 的热键注册记录`);
+              this.logger.info(`Cleaned hotkey registration record for sender ${senderId}`);
             });
             
-            this.logger.info(`热键 ${hotkey} 注册成功，发送者: ${senderId}`);
+            this.logger.info(`Hotkey ${hotkey} registered successfully, sender: ${senderId}`);
           } else {
-            this.logger.error(`热键 ${hotkey} 注册失败`);
+            this.logger.error(`Hotkey ${hotkey} registration failed`);
           }
           
           return { success };
         }
         return { success: false, error: "热键管理器未初始化" };
       } catch (error) {
-        this.logger.error("注册热键失败:", error);
+        this.logger.error("Failed to register hotkey:", error);
         return { success: false, error: error.message };
       }
     });
@@ -360,7 +360,7 @@ class IPCHandlers {
         }
         return { success: false, error: "热键管理器未初始化" };
       } catch (error) {
-        this.logger.error("注销热键失败:", error);
+        this.logger.error("Failed to unregister hotkey:", error);
         return { success: false, error: error.message };
       }
     });
@@ -375,7 +375,7 @@ class IPCHandlers {
         }
         return "CommandOrControl+Shift+Space";
       } catch (error) {
-        this.logger.error("获取当前热键失败:", error);
+        this.logger.error("Failed to get current hotkey:", error);
         return "CommandOrControl+Shift+Space";
       }
     });
@@ -387,7 +387,7 @@ class IPCHandlers {
         
         // 检查是否已经为这个发送者注册过F2热键
         if (this.f2RegisteredSenders.has(senderId)) {
-          this.logger.info(`F2热键已为发送者 ${senderId} 注册过，跳过重复注册`);
+          this.logger.info(`F2 hotkey already registered for sender ${senderId}, skipping duplicate registration`);
           return { success: true };
         }
         
@@ -398,7 +398,7 @@ class IPCHandlers {
           if (isFirstRegistration) {
             const success = this.hotkeyManager.registerF2DoubleClick((data) => {
               // 发送F2双击事件到所有注册的渲染进程
-              this.logger.info("发送F2双击事件到渲染进程:", data);
+              this.logger.info("Sending F2 double-click event to renderer process:", data);
               this.f2RegisteredSenders.forEach(id => {
                 const window = require("electron").BrowserWindow.getAllWindows().find(w => w.webContents.id === id);
                 if (window && !window.isDestroyed()) {
@@ -418,12 +418,12 @@ class IPCHandlers {
           // 监听窗口关闭事件，清理注册记录
           event.sender.on('destroyed', () => {
             this.f2RegisteredSenders.delete(senderId);
-            this.logger.info(`清理发送者 ${senderId} 的F2热键注册记录`);
+            this.logger.info(`Cleaned F2 hotkey registration record for sender ${senderId}`);
 
             // 如果没有发送者了，注销热键
             if (this.f2RegisteredSenders.size === 0) {
               this.hotkeyManager.unregisterHotkey('F2');
-              this.logger.info('所有发送者都已注销，注销F2热键');
+              this.logger.info('All senders unregistered, unregistering F2 hotkey');
             }
           });
           
@@ -431,7 +431,7 @@ class IPCHandlers {
         }
         return { success: false, error: "热键管理器未初始化" };
       } catch (error) {
-        this.logger.error("注册F2热键失败:", error);
+        this.logger.error("Failed to register F2 hotkey:", error);
         return { success: false, error: error.message };
       }
     });
@@ -446,16 +446,16 @@ class IPCHandlers {
           // 如果没有其他发送者注册F2热键，则注销热键
           if (this.f2RegisteredSenders.size === 0) {
             const success = this.hotkeyManager.unregisterHotkey('F2');
-            this.logger.info('所有发送者都已注销，注销F2热键');
+            this.logger.info('All senders unregistered, unregistering F2 hotkey');
             return { success };
           } else {
-            this.logger.info(`发送者 ${senderId} 已注销，但还有其他发送者注册了F2热键`);
+            this.logger.info(`Sender ${senderId} unregistered, but other senders still have F2 hotkey registered`);
             return { success: true };
           }
         }
         return { success: false, error: "热键管理器未初始化或未注册" };
       } catch (error) {
-        this.logger.error("注销F2热键失败:", error);
+        this.logger.error("Failed to unregister F2 hotkey:", error);
         return { success: false, error: error.message };
       }
     });
@@ -468,7 +468,7 @@ class IPCHandlers {
         }
         return { success: false, error: "热键管理器未初始化" };
       } catch (error) {
-        this.logger.error("设置录音状态失败:", error);
+        this.logger.error("Failed to set recording state:", error);
         return { success: false, error: error.message };
       }
     });
@@ -481,7 +481,7 @@ class IPCHandlers {
         }
         return { success: false, error: "热键管理器未初始化" };
       } catch (error) {
-        this.logger.error("获取录音状态失败:", error);
+        this.logger.error("Failed to get recording state:", error);
         return { success: false, error: error.message };
       }
     });
@@ -531,7 +531,7 @@ class IPCHandlers {
           accessibility: hasAccessibility
         };
       } catch (error) {
-        this.logger.error("检查权限失败:", error);
+        this.logger.error("Failed to check permissions:", error);
         return {
           microphone: false,
           accessibility: false,
@@ -549,7 +549,7 @@ class IPCHandlers {
         }
         return { success: true };
       } catch (error) {
-        this.logger.error("请求权限失败:", error);
+        this.logger.error("Failed to request permissions:", error);
         return { success: false, error: error.message };
       }
     });
@@ -561,7 +561,7 @@ class IPCHandlers {
         await this.clipboardManager.pasteText("蛐蛐权限测试");
         return { success: true, message: "辅助功能权限测试成功" };
       } catch (error) {
-        this.logger.error("辅助功能权限测试失败:", error);
+        this.logger.error("Accessibility permission test failed:", error);
         return { success: false, error: error.message };
       }
     });
@@ -576,7 +576,7 @@ class IPCHandlers {
           return { success: false, error: "当前平台不支持自动打开权限设置" };
         }
       } catch (error) {
-        this.logger.error("打开系统权限设置失败:", error);
+        this.logger.error("Failed to open system permissions settings:", error);
         return { success: false, error: error.message };
       }
     });
@@ -711,7 +711,7 @@ class IPCHandlers {
 
     // 错误报告
     ipcMain.handle("report-error", (event, error) => {
-      this.logger.error("渲染进程错误:", error);
+      this.logger.error("Renderer process error:", error);
       // TODO: 实现错误报告功能
       return true;
     });
@@ -747,7 +747,7 @@ class IPCHandlers {
           error: "日志管理器不可用"
         };
       } catch (error) {
-        this.logger.error("获取应用日志失败:", error);
+        this.logger.error("Failed to get app logs:", error);
         return {
           success: false,
           error: error.message
@@ -768,7 +768,7 @@ class IPCHandlers {
           error: "日志管理器不可用"
         };
       } catch (error) {
-        this.logger.error("获取FunASR日志失败:", error);
+        this.logger.error("Failed to get FunASR logs:", error);
         return {
           success: false,
           error: error.message
@@ -790,7 +790,7 @@ class IPCHandlers {
           error: "日志管理器不可用"
         };
       } catch (error) {
-        this.logger.error("获取日志文件路径失败:", error);
+        this.logger.error("Failed to get log file paths:", error);
         return {
           success: false,
           error: error.message
@@ -813,7 +813,7 @@ class IPCHandlers {
           error: "日志管理器不可用"
         };
       } catch (error) {
-        this.logger.error("打开日志文件失败:", error);
+        this.logger.error("Failed to open log file:", error);
         return {
           success: false,
           error: error.message
@@ -856,7 +856,7 @@ class IPCHandlers {
           debugInfo
         };
       } catch (error) {
-        this.logger.error("获取系统调试信息失败:", error);
+        this.logger.error("Failed to get system debug info:", error);
         return {
           success: false,
           error: error.message
@@ -866,7 +866,7 @@ class IPCHandlers {
 
     ipcMain.handle("test-python-environment", async () => {
       try {
-        this.logger && this.logger.info && this.logger.info('开始测试Python环境');
+        this.logger && this.logger.info && this.logger.info('Starting Python environment test');
         
         const pythonCmd = await this.funasrManager.findPythonExecutable();
         const funasrStatus = await this.funasrManager.checkFunASRInstallation();
@@ -878,7 +878,7 @@ class IPCHandlers {
           timestamp: new Date().toISOString()
         };
 
-        this.logger && this.logger.info && this.logger.info('Python环境测试完成', testResult);
+        this.logger && this.logger.info && this.logger.info('Python environment test completed', testResult);
         
         return testResult;
       } catch (error) {
@@ -888,7 +888,7 @@ class IPCHandlers {
           timestamp: new Date().toISOString()
         };
 
-        this.logger && this.logger.error && this.logger.error('Python环境测试失败', errorResult);
+        this.logger && this.logger.error && this.logger.error('Python environment test failed', errorResult);
         
         return errorResult;
       }
@@ -896,14 +896,14 @@ class IPCHandlers {
 
     ipcMain.handle("restart-funasr-server", async () => {
       try {
-        this.logger && this.logger.info && this.logger.info('手动重启FunASR服务器');
+        this.logger && this.logger.info && this.logger.info('Manually restarting FunASR server');
         
         // 使用新的restartServer方法
         const result = await this.funasrManager.restartServer();
         
         return result;
       } catch (error) {
-        this.logger && this.logger.error && this.logger.error('重启FunASR服务器失败', error);
+        this.logger && this.logger.error && this.logger.error('Failed to restart FunASR server', error);
         return {
           success: false,
           error: error.message
@@ -1024,7 +1024,7 @@ ${text}
         stream: false
       };
 
-      this.logger.info('AI文本处理请求:', {
+      this.logger.info('AI text processing request:', {
         baseUrl,
         model,
         mode,
@@ -1054,7 +1054,7 @@ ${text}
 
       const data = await response.json();
 
-      this.logger.info('AI文本处理响应:', {
+      this.logger.info('AI text processing response:', {
         status: response.status,
         data: data,
         usage: data.usage
@@ -1068,7 +1068,7 @@ ${text}
           model: model
         };
         
-        this.logger.info('AI文本处理结果:', {
+        this.logger.info('AI text processing result:', {
           originalText: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
           optimizedText: result.text.substring(0, 100) + (result.text.length > 100 ? '...' : ''),
           usage: result.usage
@@ -1076,14 +1076,14 @@ ${text}
         
         return result;
       } else {
-        this.logger.error('AI API返回数据格式错误:', response.data);
+        this.logger.error('Invalid AI API response format:', response.data);
         return {
           success: false,
           error: 'AI API返回数据格式错误'
         };
       }
     } catch (error) {
-      this.logger.error('AI文本处理失败:', error);
+      this.logger.error('AI text processing failed:', error);
       
       let errorMessage = '文本处理失败';
       if (error.response) {
@@ -1115,7 +1115,7 @@ ${text}
   // 检查AI状态
   async checkAIStatus(testConfig = null) {
     try {
-      this.logger.info('开始测试AI配置...', testConfig ? '使用临时配置' : '使用已保存配置');
+      this.logger.info('Starting AI configuration test...', testConfig ? 'Using temporary config' : 'Using saved config');
       
       // 如果提供了测试配置，使用测试配置；否则使用已保存的配置
       let apiKey, baseUrl, model;
@@ -1124,16 +1124,16 @@ ${text}
         apiKey = testConfig.ai_api_key;
         baseUrl = testConfig.ai_base_url || 'https://api.openai.com/v1';
         model = testConfig.ai_model || 'gpt-3.5-turbo';
-        this.logger.info('使用临时测试配置:', { baseUrl, model, apiKeyLength: apiKey?.length || 0 });
+        this.logger.info('Using temporary test config:', { baseUrl, model, apiKeyLength: apiKey?.length || 0 });
       } else {
         apiKey = await this.databaseManager.getSetting('ai_api_key');
         baseUrl = await this.databaseManager.getSetting('ai_base_url') || 'https://api.openai.com/v1';
         model = await this.databaseManager.getSetting('ai_model') || 'gpt-3.5-turbo';
-        this.logger.info('使用已保存配置:', { baseUrl, model, apiKeyLength: apiKey?.length || 0 });
+        this.logger.info('Using saved config:', { baseUrl, model, apiKeyLength: apiKey?.length || 0 });
       }
       
       if (!apiKey) {
-        this.logger.warn('AI测试失败: 未配置API密钥');
+        this.logger.warn('AI test failed: API key is not configured');
         return {
           available: false,
           error: '未配置API密钥',
@@ -1141,7 +1141,7 @@ ${text}
         };
       }
       
-      this.logger.info('AI配置信息:', {
+      this.logger.info('AI config info:', {
         baseUrl: baseUrl,
         model: model,
         apiKeyLength: apiKey.length
@@ -1161,7 +1161,7 @@ ${text}
         temperature: 0.1
       };
 
-      this.logger.info('发送AI测试请求:', requestData);
+      this.logger.info('Sending AI test request:', requestData);
 
       const response = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
@@ -1172,11 +1172,11 @@ ${text}
         body: JSON.stringify(requestData)
       });
 
-      this.logger.info('AI API响应状态:', response.status);
+      this.logger.info('AI API response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        this.logger.error('AI API错误响应:', errorText);
+        this.logger.error('AI API error response:', errorText);
         
         let errorData = { error: response.statusText };
         try {
@@ -1200,14 +1200,14 @@ ${text}
       }
 
       const data = await response.json();
-      this.logger.info('AI API成功响应:', data);
+      this.logger.info('AI API success response:', data);
 
       if (!data.choices || data.choices.length === 0) {
         throw new Error('AI API返回格式异常：缺少choices字段');
       }
 
       const aiResponse = data.choices[0].message?.content || '';
-      this.logger.info('AI回复内容:', aiResponse);
+      this.logger.info('AI response content:', aiResponse);
 
       return {
         available: true,
@@ -1218,7 +1218,7 @@ ${text}
         details: `成功连接到 ${model}，响应时间正常`
       };
     } catch (error) {
-      this.logger.error('AI配置测试失败:', error);
+      this.logger.error('AI configuration test failed:', error);
       
       let errorMessage = '连接失败';
       if (error.message.includes('401')) {

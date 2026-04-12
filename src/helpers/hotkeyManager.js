@@ -22,7 +22,7 @@ class HotkeyManager {
     // 如果已经注册了F2，只更新回调函数，不重新注册
     if (this.registeredHotkeys.has('F2')) {
       if (this.logger && this.logger.info) {
-        this.logger.info('F2热键已注册，更新回调函数');
+        this.logger.info('F2 hotkey already registered, updating callback');
       }
       this.onF2DoubleClick = callback;
       return true;
@@ -37,13 +37,13 @@ class HotkeyManager {
 
     if (success) {
       if (this.logger && this.logger.info) {
-        this.logger.info('F2热键首次注册成功');
+        this.logger.info('F2 hotkey registered successfully for the first time');
       }
       this.registeredHotkeys.set('F2', callback);
       return true;
     } else {
       if (this.logger && this.logger.error) {
-        this.logger.error('F2热键注册失败');
+        this.logger.error('F2 hotkey registration failed');
       }
       return false;
     }
@@ -64,7 +64,7 @@ class HotkeyManager {
     // 检查是否为双击
     if (this.f2ClickTimes.length >= 2) {
       if (this.logger && this.logger.info) {
-        this.logger.info('检测到F2双击');
+        this.logger.info('F2 double-click detected');
       }
       this.handleF2DoubleClick();
       this.f2ClickTimes = []; // 清空点击记录
@@ -79,7 +79,7 @@ class HotkeyManager {
       // 根据当前状态决定动作
       const action = this.isRecording ? 'stop' : 'start';
       if (this.logger && this.logger.info) {
-        this.logger.info(`F2双击 - ${action === 'start' ? '开始' : '停止'}录音，当前状态: ${this.isRecording}`);
+        this.logger.info(`F2 double-click - ${action === 'start' ? 'start' : 'stop'} recording, current state: ${this.isRecording}`);
       }
       
       this.onF2DoubleClick({
@@ -100,7 +100,7 @@ class HotkeyManager {
     // 检查是否已经注册了相同的热键
     if (this.registeredHotkeys.has(hotkey)) {
       if (this.logger && this.logger.info) {
-        this.logger.info(`热键 ${hotkey} 已注册，跳过重复注册`);
+        this.logger.info(`Hotkey ${hotkey} already registered, skipping duplicate registration`);
       }
       return true; // 返回成功，因为热键已经注册
     }
@@ -123,13 +123,13 @@ class HotkeyManager {
     
     if (success) {
       if (this.logger && this.logger.info) {
-        this.logger.info(`热键 ${hotkey} 注册成功`);
+        this.logger.info(`Hotkey ${hotkey} registered successfully`);
       }
       this.registeredHotkeys.set(hotkey, debouncedCallback);
       return true;
     } else {
       if (this.logger && this.logger.error) {
-        this.logger.error(`热键 ${hotkey} 注册失败`);
+        this.logger.error(`Hotkey ${hotkey} registration failed`);
       }
       return false;
     }
@@ -144,7 +144,7 @@ class HotkeyManager {
       globalShortcut.unregister(hotkey);
       this.registeredHotkeys.delete(hotkey);
       if (this.logger && this.logger.info) {
-        this.logger.info(`热键 ${hotkey} 已注销`);
+        this.logger.info(`Hotkey ${hotkey} unregistered`);
       }
       return true;
     }
@@ -159,7 +159,7 @@ class HotkeyManager {
     this.registeredHotkeys.clear();
     this.f2ClickTimes = [];
     if (this.logger && this.logger.info) {
-      this.logger.info('所有热键已注销');
+      this.logger.info('All hotkeys unregistered');
     }
   }
 

@@ -190,7 +190,7 @@ class DatabaseManager {
       return true;
     } catch (error) {
       if (this.logger && this.logger.error) {
-        this.logger.error("数据库备份失败:", error);
+        this.logger.error("Database backup failed:", error);
       }
       return false;
     }
