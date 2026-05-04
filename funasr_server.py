@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-FunASR模型服务器
-保持模型在内存中，通过stdin/stdout进行通信
+FunASR Model Server
+Keeps models in memory, communicates via stdin/stdout
 """
 
 import sys
@@ -17,21 +17,21 @@ import argparse
 import glob
 from pathlib import Path
 
-# 设置日志
+# Configure logging
 import tempfile
 import os
 
 
-# 获取日志文件路径
+# Get log file path
 def get_log_path():
-    # 尝试从环境变量获取用户数据目录
+    # Try to get user data directory from environment variable
     if "ELECTRON_USER_DATA" in os.environ:
         log_dir = os.path.join(os.environ["ELECTRON_USER_DATA"], "logs")
     else:
-        # 回退到临时目录
+        # Fall back to temp directory
         log_dir = os.path.join(tempfile.gettempdir(), "ququ_logs")
 
-    # 确保日志目录存在
+    # Ensure log directory exists
     os.makedirs(log_dir, exist_ok=True)
     return os.path.join(log_dir, "funasr_server.log")
 
@@ -43,18 +43,18 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(log_file_path, encoding="utf-8"),
-        logging.StreamHandler(),  # 同时输出到控制台
+        logging.StreamHandler(),  # Also output to console
     ],
 )
 logger = logging.getLogger(__name__)
 
-# 记录日志文件位置
-logger.info(f"FunASR服务器日志文件: {log_file_path}")
+# Record log file location
+logger.info(f"FunASR server log file: {log_file_path}")
 
 
 @contextlib.contextmanager
 def suppress_stdout():
-    """上下文管理器：临时重定向stdout到devnull，避免FunASR库的非JSON输出干扰IPC通信"""
+    """Context manager: temporarily redirect stdout to devnull to prevent FunASR library's non-JSON output from interfering with IPC communication"""
     old_stdout = sys.stdout
     devnull = open(os.devnull, "w")
     try:
@@ -75,7 +75,7 @@ class FunASRServer:
         self.transcription_count = 0
         self.total_audio_duration = 0.0
 
-        # 外部传入的 damo 根目录（例如 /Volumes/APFS/AI/models/damo）
+        # Externally provided damo root directory (e.g. /Volumes/APFS/AI/models/damo)
         self.damo_root = damo_root or os.environ.get("DAMO_ROOT")
 
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -83,25 +83,25 @@ class FunASRServer:
         self._setup_runtime_environment()
 
     def _setup_runtime_environment(self):
-        """设置运行时环境变量以优化性能"""
+        """Setup runtime environment variables for performance optimization"""
         try:
             import os
 
-            # 设置线程数优化
+            # Set thread count optimization
             os.environ["OMP_NUM_THREADS"] = "4"
-            logger.info("运行时环境变量设置完成")
+            logger.info("Runtime environment variables configured")
         except Exception as e:
-            logger.warning(f"环境设置失败: {str(e)}")
+            logger.warning(f"Environment setup failed: {str(e)}")
 
     def _signal_handler(self, signum, frame):
-        """处理退出信号"""
-        logger.info(f"收到信号 {signum}，准备退出...")
+        """Handle exit signals"""
+        logger.info(f"Received signal {signum}, preparing to exit...")
         self.running = False
 
     def _load_asr_model(self):
-        """加载ASR模型"""
+        """Load ASR model"""
         try:
-            logger.info("开始加载ASR模型...")
+            logger.info("Starting to load ASR model...")
             with suppress_stdout():
                 from funasr import AutoModel
 
@@ -111,16 +111,16 @@ class FunASRServer:
                     disable_update=True,
                     device="cpu",
                 )
-            logger.info("ASR模型加载完成")
+            logger.info("ASR model loaded successfully")
             return True
         except Exception as e:
-            logger.error(f"ASR模型加载失败: {str(e)}")
+            logger.error(f"Failed to load ASR model: {str(e)}")
             return False
 
     def _load_vad_model(self):
-        """加载VAD模型"""
+        """Load VAD model"""
         try:
-            logger.info("开始加载VAD模型...")
+            logger.info("Starting to load VAD model...")
             with suppress_stdout():
                 from funasr import AutoModel
 
@@ -130,28 +130,28 @@ class FunASRServer:
                     disable_update=True,
                     device="cpu",
                 )
-            logger.info("VAD模型加载完成")
+            logger.info("VAD model loaded successfully")
             return True
         except Exception as e:
-            logger.error(f"VAD模型加载失败: {str(e)}")
+            logger.error(f"Failed to load VAD model: {str(e)}")
             return False
 
     def _load_punc_model(self):
-        """加载标点恢复模型"""
+        """Load punctuation recovery model"""
         try:
             import time
 
             start_time = time.time()
-            logger.info("开始加载标点恢复模型...")
+            logger.info("Starting to load punctuation recovery model...")
 
-            # 记录导入时间
+            # Record import time
             import_start = time.time()
             with suppress_stdout():
                 from funasr import AutoModel
             import_time = time.time() - import_start
-            logger.info(f"FunASR导入耗时: {import_time:.2f}秒")
+            logger.info(f"FunASR import took: {import_time:.2f}s")
 
-            # 记录模型创建时间
+            # Record model creation time
             model_start = time.time()
             with suppress_stdout():
                 self.punc_model = AutoModel(
@@ -164,36 +164,36 @@ class FunASRServer:
             total_time = time.time() - start_time
 
             logger.info(
-                f"标点恢复模型加载完成 - 模型创建耗时: {model_time:.2f}秒, 总耗时: {total_time:.2f}秒"
+                f"Punctuation recovery model loaded - Model creation took: {model_time:.2f}s, Total time: {total_time:.2f}s"
             )
             return True
         except Exception as e:
-            logger.error(f"标点恢复模型加载失败: {str(e)}")
+            logger.error(f"Failed to load punctuation recovery model: {str(e)}")
             return False
 
     def initialize(self):
-        """并行初始化FunASR模型"""
+        """Initialize FunASR models in parallel"""
         if self.initialized:
-            return {"success": True, "message": "模型已初始化"}
+            return {"success": True, "message": "Models already initialized"}
 
         try:
             import threading
             import time
 
-            logger.info("正在并行初始化FunASR模型...")
+            logger.info("Initializing FunASR models in parallel...")
             start_time = time.time()
 
-            # 创建加载结果存储
+            # Create storage for loading results
             results = {}
 
             def load_model_thread(model_name, load_func):
-                """模型加载线程包装函数"""
+                """Model loading thread wrapper function"""
                 thread_start = time.time()
                 results[model_name] = load_func()
                 thread_time = time.time() - thread_start
-                logger.info(f"{model_name}模型加载线程耗时: {thread_time:.2f}秒")
+                logger.info(f"{model_name} model loading thread took: {thread_time:.2f}s")
 
-            # 创建并启动三个并行线程
+            # Create and start three parallel threads
             threads = [
                 threading.Thread(
                     target=load_model_thread, args=("asr", self._load_asr_model)
@@ -206,84 +206,84 @@ class FunASRServer:
                 ),
             ]
 
-            # 启动所有线程
+            # Start all threads
             for thread in threads:
                 thread.start()
 
-            # 等待所有线程完成，设置超时
+            # Wait for all threads to complete with timeout
             for thread in threads:
-                thread.join(timeout=300)  # 5分钟超时
+                thread.join(timeout=300)  # 5 minute timeout
                 if thread.is_alive():
-                    logger.error(f"模型加载线程超时")
+                    logger.error("Model loading thread timeout")
                     return {
                         "success": False,
-                        "error": "模型加载超时",
+                        "error": "Model loading timeout",
                         "type": "timeout_error",
                     }
 
-            # 检查加载结果
+            # Check loading results
             failed_models = [name for name, success in results.items() if not success]
 
             if failed_models:
-                error_msg = f"以下模型加载失败: {', '.join(failed_models)}"
+                error_msg = f"The following models failed to load: {', '.join(failed_models)}"
                 logger.error(error_msg)
                 return {"success": False, "error": error_msg, "type": "init_error"}
 
             total_time = time.time() - start_time
             self.initialized = True
             logger.info(
-                f"所有FunASR模型并行初始化完成，总耗时: {total_time:.2f}秒"
+                f"All FunASR models initialized in parallel, total time: {total_time:.2f}s"
             )
             return {
                 "success": True,
-                "message": f"FunASR模型并行初始化成功，耗时: {total_time:.2f}秒",
+                "message": f"FunASR models initialized in parallel, took: {total_time:.2f}s",
             }
 
         except ImportError as e:
-            error_msg = "FunASR未安装，请先安装FunASR: pip install funasr"
+            error_msg = "FunASR is not installed, please install it first: pip install funasr"
             logger.error(error_msg)
             return {"success": False, "error": error_msg, "type": "import_error"}
 
         except Exception as e:
-            error_msg = f"FunASR模型初始化失败: {str(e)}"
+            error_msg = f"FunASR model initialization failed: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
             return {"success": False, "error": error_msg, "type": "init_error"}
 
     def transcribe_audio(self, audio_path, options=None):
-        """转录音频文件"""
+        """Transcribe audio file"""
         if not self.initialized:
             init_result = self.initialize()
             if not init_result["success"]:
                 return init_result
 
         try:
-            # 检查音频文件是否存在
+            # Check if audio file exists
             if not os.path.exists(audio_path):
-                return {"success": False, "error": f"音频文件不存在: {audio_path}"}
+                return {"success": False, "error": f"Audio file not found: {audio_path}"}
 
-            logger.info(f"开始转录音频文件: {audio_path}")
+            logger.info(f"Starting to transcribe audio file: {audio_path}")
 
-            # 设置默认选项
+            # Set default options
             default_options = {
                 "batch_size_s": 60,
                 "hotword": "",
                 "use_vad": True,
-                "use_punc": True,  # 使用FunASR自带的标点恢复
+                "use_punc": True,  # Use FunASR's built-in punctuation recovery
                 "language": "zh",
             }
 
             if options:
                 default_options.update(options)
 
-            # 执行语音识别
+            # Execute speech recognition
             if default_options["use_vad"]:
                 vad_result = self.vad_model.generate(
                     input=audio_path, batch_size_s=default_options["batch_size_s"]
                 )
-                logger.info("VAD处理完成")
+                logger.info("VAD processing completed")
 
-            # 执行ASR识别
+            # Execute ASR recognition
             asr_result = self.asr_model.generate(
                 input=audio_path,
                 batch_size_s=default_options["batch_size_s"],
@@ -291,7 +291,7 @@ class FunASRServer:
                 cache={},
             )
 
-            # 提取识别文本
+            # Extract recognition text
             if isinstance(asr_result, list) and len(asr_result) > 0:
                 if isinstance(asr_result[0], dict) and "text" in asr_result[0]:
                     raw_text = asr_result[0]["text"]
@@ -300,9 +300,9 @@ class FunASRServer:
             else:
                 raw_text = str(asr_result)
 
-            logger.info(f"ASR识别完成，原始文本: {raw_text[:100]}...")
+            logger.info(f"ASR recognition completed, raw text: {raw_text[:100]}...")
 
-            # 使用FunASR进行标点恢复
+            # Use FunASR for punctuation recovery
             final_text = raw_text
             if default_options["use_punc"] and self.punc_model and raw_text.strip():
                 try:
@@ -315,9 +315,9 @@ class FunASRServer:
                             final_text = punc_result[0]["text"]
                         else:
                             final_text = str(punc_result[0])
-                    logger.info("FunASR标点恢复完成")
+                    logger.info("FunASR punctuation recovery completed")
                 except Exception as e:
-                    logger.warning(f"FunASR标点恢复失败，使用原始文本: {str(e)}")
+                    logger.warning(f"FunASR punctuation recovery failed, using original text: {str(e)}")
 
             duration = self._get_audio_duration(audio_path)
             self.transcription_count += 1
@@ -333,46 +333,46 @@ class FunASRServer:
                 ),
                 "duration": duration,
                 "language": "zh-CN",
-                "model_type": "pytorch",  # 标识使用的是pytorch版本
+                "model_type": "pytorch",  # Indicates pytorch version is used
             }
 
-            # 生产环境：每10次转录后进行内存清理
+            # Production environment: perform memory cleanup after every 10 transcriptions
             if self.transcription_count % 10 == 0:
                 self._cleanup_memory()
-                logger.info(f"已完成 {self.transcription_count} 次转录，执行内存清理")
+                logger.info(f"Completed {self.transcription_count} transcriptions, performing memory cleanup")
 
-            logger.info(f"转录完成，最终文本: {final_text[:100]}...")
+            logger.info(f"Transcription completed, final text: {final_text[:100]}...")
             return result
 
         except Exception as e:
-            error_msg = f"音频转录失败: {str(e)}"
+            error_msg = f"Audio transcription failed: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
             return {"success": False, "error": error_msg, "type": "transcription_error"}
 
     def _get_audio_duration(self, audio_path):
-        """获取音频时长"""
+        """Get audio duration"""
         try:
             import librosa
 
             duration = librosa.get_duration(filename=audio_path)
-            self.total_audio_duration += duration  # 累计音频时长
+            self.total_audio_duration += duration  # Accumulate total audio duration
             return duration
         except:
             return 0.0
 
     def _cleanup_memory(self):
-        """生产环境内存清理"""
+        """Production environment memory cleanup"""
         try:
             import gc
 
             gc.collect()
-            logger.info("内存清理完成")
+            logger.info("Memory cleanup completed")
         except Exception as e:
-            logger.warning(f"内存清理失败: {str(e)}")
+            logger.warning(f"Memory cleanup failed: {str(e)}")
 
     def get_performance_stats(self):
-        """获取性能统计信息"""
+        """Get performance statistics"""
         return {
             "transcription_count": self.transcription_count,
             "total_audio_duration": round(self.total_audio_duration, 2),
@@ -388,7 +388,7 @@ class FunASRServer:
         }
 
     def check_status(self):
-        """检查FunASR状态"""
+        """Check FunASR status"""
         try:
             import funasr
 
@@ -400,7 +400,7 @@ class FunASRServer:
                 "models": {
                     "asr": self.asr_model is not None,
                     "vad": self.vad_model is not None,
-                    "punc": self.punc_model is not None,  # FunASR标点恢复模型状态
+                    "punc": self.punc_model is not None,  # FunASR punctuation recovery model status
                 },
             }
         except ImportError:
@@ -408,30 +408,30 @@ class FunASRServer:
                 "success": False,
                 "installed": False,
                 "initialized": False,
-                "error": "FunASR未安装",
+                "error": "FunASR is not installed",
             }
 
     def run(self):
-        """运行服务器主循环"""
-        logger.info("FunASR服务器启动")
+        """Run server main loop"""
+        logger.info("FunASR server started")
 
-        # 解析 damo 根目录
+        # Parse damo root directory
         def _default_damo_root():
-            # 允许通过 MODELSCOPE_CACHE 指定根；常见是 ~/.cache/modelscope/hub/damo
+            # Allow specifying root via MODELSCOPE_CACHE; common is ~/.cache/modelscope/hub/damo
             root = os.environ.get("MODELSCOPE_CACHE")
             if root:
-                # 兼容两种布局：<cache>/damo 或 <cache>/hub/damo
+                # Support two layouts: <cache>/damo or <cache>/hub/damo
                 if os.path.isdir(os.path.join(root, "damo")):
                     return os.path.join(root, "damo")
                 if os.path.isdir(os.path.join(root, "hub", "damo")):
                     return os.path.join(root, "hub", "damo")
-                # 像 Node 一样自定义到 /Volumes/APFS/AI/models/damo，就直接传入 --damo-root
-            # 默认回到用户主目录的 modelscope/hub/damo
+                # Like Node, if customizing to /Volumes/APFS/AI/models/damo, pass --damo-root directly
+            # Default to modelscope/hub/damo in user home directory
             home_dir = os.path.expanduser("~")
-            return os.path.join(home_dir, ".cache", "modelscope", "hub", "damo")
+            return os.path.join(home_dir, ".cache", "modelscope", "hub", "models", "damo")
 
         cache_path = self.damo_root if self.damo_root else _default_damo_root()
-        logger.info(f"使用的模型根目录(damo root): {cache_path}")
+        logger.info(f"Model root directory (damo root): {cache_path}")
 
         repos = [
             "speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
@@ -440,7 +440,7 @@ class FunASRServer:
         ]
 
         def _repo_ready(repo_dir):
-            # 目录存在且包含任意常见权重/配置文件即认为已就绪
+            # Directory exists and contains any common weight/config files
             if not os.path.isdir(repo_dir):
                 return False
             patterns = [
@@ -459,13 +459,13 @@ class FunASRServer:
                 missing.append(r)
 
         if not missing:
-            logger.info("模型文件存在，开始初始化")
+            logger.info("Model files exist, starting initialization")
             init_result = self.initialize()
         else:
-            logger.info(f"模型文件不存在或不完整：{', '.join(missing)}，跳过初始化")
+            logger.info(f"Model files missing or incomplete: {', '.join(missing)}, skipping initialization")
             init_result = {
                 "success": False,
-                "error": "模型文件未下载，请先下载模型",
+                "error": "Model files not downloaded, please download models first",
                 "type": "models_not_downloaded"
             }
         print(json.dumps(init_result, ensure_ascii=False))
@@ -473,7 +473,7 @@ class FunASRServer:
 
         while self.running:
             try:
-                # 读取命令
+                # Read command
                 line = sys.stdin.readline()
                 if not line:
                     break
@@ -485,12 +485,12 @@ class FunASRServer:
                 try:
                     command = json.loads(line)
                 except json.JSONDecodeError:
-                    result = {"success": False, "error": "无效的JSON命令"}
+                    result = {"success": False, "error": "Invalid JSON command"}
                     print(json.dumps(result, ensure_ascii=False))
                     sys.stdout.flush()
                     continue
 
-                # 处理命令
+                # Process command
                 if command.get("action") == "transcribe":
                     audio_path = command.get("audio_path")
                     options = command.get("options", {})
@@ -501,19 +501,19 @@ class FunASRServer:
                     result = {"success": True, "stats": self.get_performance_stats()}
                 elif command.get("action") == "cleanup":
                     self._cleanup_memory()
-                    result = {"success": True, "message": "内存清理完成"}
+                    result = {"success": True, "message": "Memory cleanup completed"}
                 elif command.get("action") == "exit":
-                    result = {"success": True, "message": "服务器退出"}
+                    result = {"success": True, "message": "Server exiting"}
                     print(json.dumps(result, ensure_ascii=False))
                     sys.stdout.flush()
                     break
                 else:
                     result = {
                         "success": False,
-                        "error": f"未知命令: {command.get('action')}",
+                        "error": f"Unknown command: {command.get('action')}",
                     }
 
-                # 输出结果
+                # Output result
                 print(json.dumps(result, ensure_ascii=False))
                 sys.stdout.flush()
 
@@ -528,12 +528,12 @@ class FunASRServer:
                 print(json.dumps(error_result, ensure_ascii=False))
                 sys.stdout.flush()
 
-        logger.info("FunASR服务器退出")
+        logger.info("FunASR server exiting")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--damo-root", type=str, default=None,
-                        help="damo 模型根目录，例如 /Volumes/APFS/AI/models/damo")
+                        help="damo model root directory, e.g. /Volumes/APFS/AI/models/damo")
     args = parser.parse_args()
 
     server = FunASRServer(damo_root=args.damo_root)
