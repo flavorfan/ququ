@@ -75,11 +75,6 @@ logger.logFunASR('FunASR 专用日志');
 - `asarUnpack` 必须包含：Python 脚本、ffmpeg-static、better-sqlite3
 - 构建产物含完整 Python 运行时（约 1GB+）
 
-### CSS
-- Tailwind 4.x，中文字体优化
-- 自定义类：`.chinese-content`、`.chinese-title`、`.status-text`
-- Electron 专用：`.draggable`、`.non-draggable`
-
 ### 状态管理
 - 无外部状态库，使用 React hooks + Electron IPC
 - 录音状态通过 `hotkeyManager.js` 在进程间手动同步

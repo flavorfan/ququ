@@ -30,7 +30,7 @@ function resolvePythonPath() {
 }
 
 const pythonPath = resolvePythonPath();
-const pythonProcess = spawn(pythonPath, ['-m', 'pytest', 'tests/python'], {
+const pythonProcess = spawn(pythonPath, ['-m', 'pytest', 'tests/py'], {
   cwd: projectRoot,
   stdio: 'inherit',
   windowsHide: true,

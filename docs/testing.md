@@ -60,6 +60,7 @@ tests/
 ├── py/
 │   ├── conftest.py                             # pytest 配置和 fixtures
 │   ├── unit/
+│   │   ├── test_funasr.py                      # FunASR 转写流程单元测试
 │   │   └── test_funasr_server.py               # 服务状态和统计
 │   └── protocol/
 │       └── test_funasr_server_protocol.py      # JSON 行协议测试
@@ -144,6 +145,11 @@ python tests/manual/py/funasr-timing.smoke.py
 ## 当前覆盖范围
 
 ### ✅ 已实现
+
+- FunASR 转写流程单元测试（3 个测试）
+  - 音频文件缺失时返回明确错误
+  - 默认转写参数（batch_size/hotword）行为验证
+  - 初始化失败时错误透传（短路返回）
 
 - FunASR server JSON 协议（5 个测试）
   - 无效 JSON 异常处理
