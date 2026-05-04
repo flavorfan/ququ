@@ -40,7 +40,7 @@ log_file_path = get_log_path()
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(name)s - %(module)s - %(filename)s - %(message)s",
     handlers=[
         logging.FileHandler(log_file_path, encoding="utf-8"),
         logging.StreamHandler(),  # Also output to console
