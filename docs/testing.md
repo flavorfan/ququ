@@ -20,9 +20,9 @@
 
 ### 2. 自动化 Python 测试（pytest）
 
-**命令：** `pnpm run test:py` 或直接 `pytest tests/python`
+**命令：** `pnpm run test:py` 或直接 `pytest tests/py`
 
-- **位置：** `tests/python/unit/` 和 `tests/python/protocol/`
+- **位置：** `tests/py/unit/` 和 `tests/py/protocol/`
 - **范围：** FunASR 服务器协议、状态管理、性能统计
 - **依赖：** 需要 FunASR 库（但不需要实际模型文件）
 - **运行时间：** ~30s（包含 server 启动）
@@ -42,7 +42,7 @@
 
 ### 4. 手工 Smoke 脚本
 
-**位置：** `tests/manual/js/` 和 `tests/manual/python/`
+**位置：** `tests/manual/js/` 和 `tests/manual/py/`
 
 - macOS 文本插入平台权限验证
 - FunASR 模型加载性能基准测试
@@ -57,7 +57,7 @@ tests/
 │   │   └── text-processing-modes.test.js      # 模式选择逻辑
 │   └── integration/
 │       └── funasrManager.test.js               # FunASR manager 集成
-├── python/
+├── py/
 │   ├── conftest.py                             # pytest 配置和 fixtures
 │   ├── unit/
 │   │   └── test_funasr_server.py               # 服务状态和统计
@@ -66,7 +66,7 @@ tests/
 └── manual/
     ├── js/
     │   └── text-insertion.smoke.js             # macOS 可访问性测试
-    └── python/
+    └── py/
         └── funasr-timing.smoke.py              # 模型加载性能
 ```
 
@@ -103,22 +103,22 @@ pnpm run test:js:run -- -t "embedded python"
 
 ```bash
 # 直接用 pytest（需要在虚拟环境内）
-pytest tests/python
+pytest tests/py
 
 # 只运行单元测试
-pytest tests/python/unit -v
+pytest tests/py/unit -v
 
 # 只运行协议测试
-pytest tests/python/protocol -v
+pytest tests/py/protocol -v
 
 # 只运行单个测试
-pytest tests/python/unit/test_funasr_server.py::test_check_status_before_initialize_reports_not_ready
+pytest tests/py/unit/test_funasr_server.py::test_check_status_before_initialize_reports_not_ready
 
 # 显示 print 和详细输出
-pytest tests/python -v -s
+pytest tests/py -v -s
 
 # 按关键词过滤
-pytest tests/python -k "initialize"
+pytest tests/py -k "initialize"
 ```
 
 ### 环境自检
@@ -138,7 +138,7 @@ pnpm run test:python:info
 node tests/manual/js/text-insertion.smoke.js
 
 # FunASR 加载性能（需要下载模型）
-python tests/manual/python/funasr-timing.smoke.py
+python tests/manual/py/funasr-timing.smoke.py
 ```
 
 ## 当前覆盖范围
@@ -188,7 +188,7 @@ A: 自动化测试的目的是快速反馈代码逻辑，不是验证部署。�
 A: JS 测试可以（完全 mocked）。Python 测试需要 FunASR 库，但不需要模型文件。
 
 **Q: 如何调试失败的测试？**  
-A: JS 用 `pnpm run test:js` 启动 watch，改动后自动重跑。Python 用 `pytest tests/python/unit/xxx.py -v -s` 查看详细输出和 print。
+A: JS 用 `pnpm run test:js` 启动 watch，改动后自动重跑。Python 用 `pytest tests/py/unit/xxx.py -v -s` 查看详细输出和 print。
 
 ## 后续规划
 
