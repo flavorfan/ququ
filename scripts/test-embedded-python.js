@@ -5,7 +5,51 @@ const { spawn } = require('child_process');
 class EmbeddedPythonTester {
   constructor() {
     this.pythonDir = path.join(__dirname, '..', 'python');
-    this.pythonPath = path.join(this.pythonDir, 'bin', 'python3.11');
+    this.isWindows = process.platform === 'win32';
+    this.pythonPath = this.resolvePythonPath();
+  }
+
+  resolvePythonPath() {
+    const candidates = this.isWindows
+      ? [
+          path.join(this.pythonDir, 'Scripts', 'python.exe'),
+          path.join(this.pythonDir, 'python.exe')
+        ]
+      : [path.join(this.pythonDir, 'bin', 'python3.11')];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return candidates[0];
+  }
+
+  getSitePackagesPath() {
+    return this.isWindows
+      ? path.join(this.pythonDir, 'Lib', 'site-packages')
+      : path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages');
+  }
+
+  createPythonProcessEnv() {
+    const env = {
+      ...process.env,
+      PYTHONDONTWRITEBYTECODE: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUNBUFFERED: '1'
+    };
+
+    if (!this.isWindows) {
+      env.PYTHONHOME = this.pythonDir;
+      env.PYTHONPATH = this.getSitePackagesPath();
+    }
+
+    delete env.PYTHONUSERBASE;
+    delete env.PYTHONSTARTUP;
+    delete env.VIRTUAL_ENV;
+
+    return env;
   }
 
   async runTests() {
@@ -47,11 +91,13 @@ class EmbeddedPythonTester {
       throw new Error('Python路径不是文件');
     }
     
-    // 检查执行权限
-    try {
-      fs.accessSync(this.pythonPath, fs.constants.X_OK);
-    } catch (error) {
-      throw new Error('Python文件没有执行权限');
+    // Windows 不依赖 X_OK；Unix-like 需要执行权限。
+    if (!this.isWindows) {
+      try {
+        fs.accessSync(this.pythonPath, fs.constants.X_OK);
+      } catch (error) {
+        throw new Error('Python文件没有执行权限');
+      }
     }
     
     console.log('   ✅ Python可执行文件存在且有执行权限');
@@ -139,23 +185,12 @@ class EmbeddedPythonTester {
   async runPythonCommand(args) {
     return new Promise((resolve, reject) => {
       // 设置隔离环境变量
-      const env = {
-        ...process.env,
-        PYTHONHOME: this.pythonDir,
-        PYTHONPATH: path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages'),
-        PYTHONDONTWRITEBYTECODE: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUNBUFFERED: '1'
-      };
-      
-      // 清除可能干扰的环境变量
-      delete env.PYTHONUSERBASE;
-      delete env.PYTHONSTARTUP;
-      delete env.VIRTUAL_ENV;
+      const env = this.createPythonProcessEnv();
       
       const pythonProcess = spawn(this.pythonPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: env
+        env: env,
+        windowsHide: true
       });
       
       let stdout = '';

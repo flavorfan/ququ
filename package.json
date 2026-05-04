@@ -12,7 +12,7 @@
     "build": "cd src && vite build && cd .. && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "build:renderer": "cd src && vite build",
-    "prepare:python": "pip install funasr modelscope torch torchaudio librosa numpy && python download_models.py",
+    "prepare:python": "node scripts/prepare-embedded-python.js",
     "prepare:python:uv": "uv sync && uv run python download_models.py",
     "prepare:python:embedded": "node scripts/prepare-embedded-python.js",
     "prepare:python:info": "node scripts/prepare-embedded-python.js --info",

@@ -63,18 +63,43 @@ class FunASRManager {
   }
 
   getEmbeddedPythonPath() {
-    // 获取嵌入式Python路径
-    if (process.env.NODE_ENV === "development") {
-      return path.join(__dirname, "..", "..", "python", "bin", "python3.11");
-    } else {
-      return path.join(
-        process.resourcesPath,
-        "app.asar.unpacked",
-        "python",
-        "bin",
-        "python3.11"
-      );
+    // 获取嵌入式Python路径（跨平台）
+    const pythonRoot = process.env.NODE_ENV === "development"
+      ? path.join(__dirname, "..", "..", "python")
+      : path.join(process.resourcesPath, "app.asar.unpacked", "python");
+
+    const candidates = process.platform === "win32"
+      ? [
+          path.join(pythonRoot, "Scripts", "python.exe"),
+          path.join(pythonRoot, "python.exe")
+        ]
+      : [path.join(pythonRoot, "bin", "python3.11")];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
+
+    return candidates[0];
+  }
+
+  getEmbeddedPythonSitePackages(pythonHome) {
+    if (process.platform === "win32") {
+      return path.join(pythonHome, "Lib", "site-packages");
+    }
+    return path.join(pythonHome, "lib", "python3.11", "site-packages");
+  }
+
+  getEmbeddedPythonHome(pythonExecutablePath) {
+    const executableDir = path.dirname(pythonExecutablePath);
+    const dirName = path.basename(executableDir).toLowerCase();
+
+    if (dirName === "bin" || dirName === "scripts") {
+      return path.dirname(executableDir);
+    }
+
+    return executableDir;
   }
 
   setupIsolatedEnvironment() {
@@ -84,11 +109,16 @@ class FunASRManager {
     
     if (isUsingEmbedded) {
       // 使用嵌入式Python时设置完全隔离的环境变量
-      const pythonHome = path.dirname(path.dirname(embeddedPythonPath));
-      const sitePackages = path.join(pythonHome, 'lib', 'python3.11', 'site-packages');
+      const pythonHome = this.getEmbeddedPythonHome(embeddedPythonPath);
+      const sitePackages = this.getEmbeddedPythonSitePackages(pythonHome);
       
-      process.env.PYTHONHOME = pythonHome;
-      process.env.PYTHONPATH = sitePackages;
+      if (process.platform !== 'win32') {
+        process.env.PYTHONHOME = pythonHome;
+        process.env.PYTHONPATH = sitePackages;
+      } else {
+        delete process.env.PYTHONHOME;
+        delete process.env.PYTHONPATH;
+      }
       process.env.PYTHONDONTWRITEBYTECODE = '1';
       process.env.PYTHONIOENCODING = 'utf-8';
       process.env.PYTHONUNBUFFERED = '1';
@@ -143,13 +173,15 @@ class FunASRManager {
     
     if (isUsingEmbedded) {
       // 使用嵌入式Python时的完整隔离环境
-      const pythonHome = path.dirname(path.dirname(embeddedPythonPath));
-      const sitePackages = path.join(pythonHome, 'lib', 'python3.11', 'site-packages');
-      
-      env.PYTHONHOME = pythonHome;
-      env.PYTHONPATH = sitePackages;
-      env.LD_LIBRARY_PATH = path.join(pythonHome, 'lib');
-      env.DYLD_LIBRARY_PATH = path.join(pythonHome, 'lib'); // macOS
+      const pythonHome = this.getEmbeddedPythonHome(embeddedPythonPath);
+      const sitePackages = this.getEmbeddedPythonSitePackages(pythonHome);
+
+      if (process.platform !== 'win32') {
+        env.PYTHONHOME = pythonHome;
+        env.PYTHONPATH = sitePackages;
+        env.LD_LIBRARY_PATH = path.join(pythonHome, 'lib');
+        env.DYLD_LIBRARY_PATH = path.join(pythonHome, 'lib'); // macOS
+      }
       
       // 只在首次构建或环境变化时记录日志
       if (!this._cachedPythonEnv || this._lastEmbeddedCheck !== isUsingEmbedded) {
@@ -880,13 +912,17 @@ class FunASRManager {
       
     const possiblePaths = [
       // 优先使用 uv 虚拟环境中的 Python
+      path.join(projectRoot, ".venv", "Scripts", "python.exe"),
       path.join(projectRoot, ".venv", "bin", "python3.11"),
       path.join(projectRoot, ".venv", "bin", "python3"),
       path.join(projectRoot, ".venv", "bin", "python"),
+      path.join(projectRoot, "python", "Scripts", "python.exe"),
+      path.join(projectRoot, "python", "python.exe"),
       // 然后尝试系统路径
       "python3.11",
       "python3",
       "python",
+      "py",
       "/usr/bin/python3.11",
       "/usr/bin/python3",
       "/usr/local/bin/python3.11",

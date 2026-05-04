@@ -14,7 +14,55 @@ class EmbeddedPythonBuilder {
     this.pythonVersion = '3.11.6';
     this.buildDate = '20231002';
     this.pythonDir = path.join(__dirname, '..', 'python');
+    this.isWindows = process.platform === 'win32';
     this.forceReinstall = false;
+  }
+
+  getPythonExecutablePath() {
+    const candidates = this.isWindows
+      ? [
+          path.join(this.pythonDir, 'Scripts', 'python.exe'),
+          path.join(this.pythonDir, 'python.exe')
+        ]
+      : [path.join(this.pythonDir, 'bin', 'python3.11')];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return candidates[0];
+  }
+
+  getSitePackagesPath() {
+    if (this.isWindows) {
+      return path.join(this.pythonDir, 'Lib', 'site-packages');
+    }
+    return path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages');
+  }
+
+  createPythonProcessEnv() {
+    const env = {
+      ...process.env,
+      PYTHONDONTWRITEBYTECODE: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONUNBUFFERED: '1',
+    };
+
+    // Virtualenv on Windows should use its own interpreter layout.
+    if (!this.isWindows) {
+      env.PYTHONHOME = this.pythonDir;
+      env.PYTHONPATH = this.getSitePackagesPath();
+      env.LD_LIBRARY_PATH = path.join(this.pythonDir, 'lib');
+      env.DYLD_LIBRARY_PATH = path.join(this.pythonDir, 'lib');
+    }
+
+    delete env.PYTHONUSERBASE;
+    delete env.PYTHONSTARTUP;
+    delete env.VIRTUAL_ENV;
+
+    return env;
   }
 
   async build() {
@@ -30,7 +78,7 @@ class EmbeddedPythonBuilder {
           console.log(`   大小: ${existingInfo.size.mb}MB (${existingInfo.size.files} 个文件)`);
           
           // 验证关键依赖是否完整
-          const pythonPath = path.join(this.pythonDir, 'bin', 'python3.11');
+          const pythonPath = this.getPythonExecutablePath();
           const isValid = await this.validateExistingEnvironment(pythonPath);
           
           if (isValid) {
@@ -75,6 +123,17 @@ class EmbeddedPythonBuilder {
   }
 
   async downloadPythonRuntime() {
+    if (this.isWindows) {
+      console.log('🪟 Windows 环境：使用 uv 创建隔离 Python 3.11 运行时...');
+      try {
+        execSync(`uv venv --python 3.11 --seed "${this.pythonDir}"`, { stdio: 'inherit' });
+        console.log('✅ Windows Python 运行时创建完成');
+        return;
+      } catch (error) {
+        throw new Error(`使用 uv 创建 Windows Python 环境失败: ${error.message}`);
+      }
+    }
+
     const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
     const filename = `cpython-${this.pythonVersion}+${this.buildDate}-${arch}-apple-darwin-install_only.tar.gz`;
     const url = `https://github.com/indygreg/python-build-standalone/releases/download/${this.buildDate}/${filename}`;
@@ -146,25 +205,32 @@ class EmbeddedPythonBuilder {
   }
 
   async installDependencies() {
-    const pythonPath = path.join(this.pythonDir, 'bin', 'python3.11');
-    const sitePackagesPath = path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages');
+    const pythonPath = this.getPythonExecutablePath();
+    const installEnv = this.createPythonProcessEnv();
 
     console.log('📦 安装Python依赖...');
 
-    // 确保pip是最新的
-    console.log('⬆️ 升级pip...');
-    try {
-      execSync(`"${pythonPath}" -m pip install --upgrade pip`, {
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          PYTHONHOME: this.pythonDir,
-          PYTHONPATH: sitePackagesPath,
-          PYTHONDONTWRITEBYTECODE: '1'
-        }
-      });
-    } catch (error) {
-      console.warn('⚠️ pip升级失败，继续安装依赖...');
+    // 确保pip是最新的（Windows 上优先使用 uv pip，避免 pip 缺失问题）
+    if (this.isWindows) {
+      console.log('⬆️ 使用 uv pip 预热安装能力...');
+      try {
+        execSync(`uv pip install --python "${pythonPath}" pip`, {
+          stdio: 'inherit',
+          env: installEnv
+        });
+      } catch (error) {
+        console.warn('⚠️ uv pip 预热失败，继续尝试安装依赖...');
+      }
+    } else {
+      console.log('⬆️ 升级pip...');
+      try {
+        execSync(`"${pythonPath}" -m pip install --upgrade pip`, {
+          stdio: 'inherit',
+          env: installEnv
+        });
+      } catch (error) {
+        console.warn('⚠️ pip升级失败，继续安装依赖...');
+      }
     }
 
     // 定义依赖列表 - 确保numpy等核心依赖被正确安装
@@ -173,6 +239,7 @@ class EmbeddedPythonBuilder {
       'torch==2.0.1',
       'torchaudio==2.0.2',
       'torchvision==0.15.2',
+      'modelscope',
       'librosa>=0.11.0',
       'funasr>=1.2.7'
     ];
@@ -181,62 +248,34 @@ class EmbeddedPythonBuilder {
     for (const dep of dependencies) {
       console.log(`📦 安装 ${dep}...`);
       try {
-        // 构建完整的环境变量
-        const installEnv = {
-          ...process.env,
-          PYTHONHOME: this.pythonDir,
-          PYTHONPATH: sitePackagesPath,
-          PYTHONDONTWRITEBYTECODE: '1',
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUNBUFFERED: '1',
-          PIP_NO_CACHE_DIR: '1',
-          // 确保库路径正确
-          LD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-          DYLD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'), // macOS
-        };
-        
-        // 清除可能干扰的环境变量
-        delete installEnv.PYTHONUSERBASE;
-        delete installEnv.PYTHONSTARTUP;
-        delete installEnv.VIRTUAL_ENV;
-        
-        execSync(`"${pythonPath}" -m pip install --target "${sitePackagesPath}" --no-deps --force-reinstall "${dep}"`, {
-          stdio: 'inherit',
-          env: installEnv
-        });
-        
-        // 安装依赖的依赖
-        execSync(`"${pythonPath}" -m pip install --target "${sitePackagesPath}" --only-binary=all "${dep}"`, {
-          stdio: 'inherit',
-          env: installEnv
-        });
+        if (this.isWindows) {
+          execSync(`uv pip install --python "${pythonPath}" --reinstall "${dep}"`, {
+            stdio: 'inherit',
+            env: installEnv
+          });
+        } else {
+          execSync(`"${pythonPath}" -m pip install --upgrade --force-reinstall "${dep}"`, {
+            stdio: 'inherit',
+            env: installEnv
+          });
+        }
         
         console.log(`✅ ${dep} 安装完成`);
       } catch (error) {
         console.error(`❌ ${dep} 安装失败:`, error.message);
-        // 尝试不使用 --no-deps 重新安装
         try {
           console.log(`🔄 重试安装 ${dep} (包含依赖)...`);
-          const installEnv = {
-            ...process.env,
-            PYTHONHOME: this.pythonDir,
-            PYTHONPATH: sitePackagesPath,
-            PYTHONDONTWRITEBYTECODE: '1',
-            PYTHONIOENCODING: 'utf-8',
-            PYTHONUNBUFFERED: '1',
-            PIP_NO_CACHE_DIR: '1',
-            LD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-            DYLD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-          };
-          
-          delete installEnv.PYTHONUSERBASE;
-          delete installEnv.PYTHONSTARTUP;
-          delete installEnv.VIRTUAL_ENV;
-          
-          execSync(`"${pythonPath}" -m pip install --target "${sitePackagesPath}" --force-reinstall "${dep}"`, {
-            stdio: 'inherit',
-            env: installEnv
-          });
+          if (this.isWindows) {
+            execSync(`uv pip install --python "${pythonPath}" "${dep}"`, {
+              stdio: 'inherit',
+              env: installEnv
+            });
+          } else {
+            execSync(`"${pythonPath}" -m pip install --upgrade "${dep}"`, {
+              stdio: 'inherit',
+              env: installEnv
+            });
+          }
           console.log(`✅ ${dep} 重试安装成功`);
         } catch (retryError) {
           console.error(`❌ ${dep} 重试安装也失败:`, retryError.message);
@@ -252,29 +291,11 @@ class EmbeddedPythonBuilder {
   async verifyDependencies(pythonPath) {
     console.log('🔍 验证依赖安装...');
     
-    const criticalDeps = ['numpy', 'torch', 'librosa', 'funasr'];
-    const sitePackagesPath = path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages');
+    const criticalDeps = ['numpy', 'torch', 'librosa', 'modelscope', 'funasr'];
+    const verifyEnv = this.createPythonProcessEnv();
     
     for (const dep of criticalDeps) {
       try {
-        // 构建完整的环境变量
-        const verifyEnv = {
-          ...process.env,
-          PYTHONHOME: this.pythonDir,
-          PYTHONPATH: sitePackagesPath,
-          PYTHONDONTWRITEBYTECODE: '1',
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUNBUFFERED: '1',
-          // 确保库路径正确
-          LD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-          DYLD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'), // macOS
-        };
-        
-        // 清除可能干扰的环境变量
-        delete verifyEnv.PYTHONUSERBASE;
-        delete verifyEnv.PYTHONSTARTUP;
-        delete verifyEnv.VIRTUAL_ENV;
-        
         const result = execSync(`"${pythonPath}" -c "import ${dep}; print('${dep} OK')"`, {
           stdio: 'pipe',
           env: verifyEnv
@@ -300,25 +321,8 @@ class EmbeddedPythonBuilder {
       }
       
       // 检查关键依赖是否可用
-      const criticalDeps = ['numpy', 'torch', 'librosa', 'funasr'];
-      const sitePackagesPath = path.join(this.pythonDir, 'lib', 'python3.11', 'site-packages');
-      
-      // 构建环境变量
-      const verifyEnv = {
-        ...process.env,
-        PYTHONHOME: this.pythonDir,
-        PYTHONPATH: sitePackagesPath,
-        PYTHONDONTWRITEBYTECODE: '1',
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONUNBUFFERED: '1',
-        LD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-        DYLD_LIBRARY_PATH: path.join(this.pythonDir, 'lib'),
-      };
-      
-      // 清除可能干扰的环境变量
-      delete verifyEnv.PYTHONUSERBASE;
-      delete verifyEnv.PYTHONSTARTUP;
-      delete verifyEnv.VIRTUAL_ENV;
+      const criticalDeps = ['numpy', 'torch', 'librosa', 'modelscope', 'funasr'];
+      const verifyEnv = this.createPythonProcessEnv();
       
       for (const dep of criticalDeps) {
         try {
@@ -392,7 +396,7 @@ class EmbeddedPythonBuilder {
   }
 
   async getEmbeddedPythonInfo() {
-    const pythonPath = path.join(this.pythonDir, 'bin', 'python3.11');
+    const pythonPath = this.getPythonExecutablePath();
     
     if (!fs.existsSync(pythonPath)) {
       return null;
@@ -401,11 +405,7 @@ class EmbeddedPythonBuilder {
     try {
       const version = execSync(`"${pythonPath}" --version`, { 
         encoding: 'utf8',
-        env: {
-          ...process.env,
-          PYTHONHOME: this.pythonDir,
-          PYTHONDONTWRITEBYTECODE: '1'
-        }
+        env: this.createPythonProcessEnv()
       }).trim();
       
       const sizeInfo = this.getDirectorySize(this.pythonDir);
