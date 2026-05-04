@@ -12,3 +12,8 @@ dependencies = [
     "torchaudio==2.0.2",
     "torchvision==0.15.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]

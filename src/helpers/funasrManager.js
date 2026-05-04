@@ -168,7 +168,7 @@ class FunASRManager {
       PYTHONUNBUFFERED: '1',
       
       // 设置用户数据目录用于日志
-      ELECTRON_USER_DATA: require('electron').app.getPath('userData')
+      ELECTRON_USER_DATA: this.getElectronUserDataPath()
     };
     
     if (isUsingEmbedded) {
@@ -214,6 +214,25 @@ class FunASRManager {
     this._lastEmbeddedCheck = isUsingEmbedded;
     
     return env;
+  }
+
+  getElectronUserDataPath() {
+    if (process.env.ELECTRON_USER_DATA) {
+      return process.env.ELECTRON_USER_DATA;
+    }
+
+    try {
+      const electron = require('electron');
+      if (electron && electron.app && typeof electron.app.getPath === 'function') {
+        return electron.app.getPath('userData');
+      }
+    } catch (error) {
+      this.logger.debug && this.logger.debug('Electron app path unavailable, using temp fallback', {
+        error: error.message
+      });
+    }
+
+    return path.join(os.tmpdir(), 'ququ-user-data');
   }
 
   findDamoRoot(startDir, depth = 0, maxDepth = 5) {
